@@ -1,32 +1,36 @@
 const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
+const Product = require('../models/Product');
 
 // ✅ CREATE ORDER
 exports.createOrder = async (req, res) => {
     try {
-        const { orderItems } = req.body;
+        const orderItems = req.body; // Assume this could be anything, not guaranteed to be an array.
         const userId = req.user.id;
-
-        if (!orderItems || orderItems.length === 0) {
+        
+        // Convert orderItems to an array if it's not already
+        const orderItemsArray = Array.isArray(orderItems) ? orderItems : (orderItems ? [orderItems] : []);
+        
+        if (orderItemsArray.length === 0) {
             return res.status(400).json({ message: 'Order must contain at least one item.' });
         }
-
+        
         let totalPrice = 0;
-        const orderItemIds = await Promise.all(orderItems.map(async (item) => {
+        const orderItemIds = await Promise.all(orderItemsArray.map(async (item) => {
             const newItem = new OrderItem({
                 product: item.product,
                 quantity: item.quantity
             });
-
+            const pr = await Product.findById(item.product);
             await newItem.save();
-            totalPrice += item.price * item.quantity;
+            totalPrice +=  pr.price * item.quantity;
             return newItem._id;
         }));
 
         const order = new Order({
             user: userId,
             orderItems: orderItemIds,
-            totalPrice
+            totalPrice: totalPrice
         });
 
         await order.save();
